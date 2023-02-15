@@ -4,6 +4,9 @@ from dataclasses import dataclass
 import numpy as np
 
 
+DB_FILE = '/home/yun/Zotero/zotero.sqlite'
+
+
 @dataclass
 class Collection:
     collection_id: int

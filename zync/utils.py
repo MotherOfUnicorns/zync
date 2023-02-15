@@ -3,7 +3,7 @@ from typing import List
 
 import pandas as pd
 
-DB_FILE = '/home/yun/Zotero/zotero.sqlite'
+from .constants import DB_FILE
 
 
 def query_from_db(qry: str, columns: List[str]) -> pd.DataFrame:
