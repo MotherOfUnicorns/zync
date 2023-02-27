@@ -47,22 +47,28 @@ class Collection:
 @dataclass
 class Item:
     item_id: int
+    parent_item_id: int
     item_type_id: int  # TODO is this useful?
     key: str
     author_last_name: str
     author_first_name: str
+    zotero_path: str
     title: str = ""
     publish_year: str = "yyyy"
     extra_tag: Optional[str] = None
 
     def __post_init__(self):
         self.item_id = int(self.item_id)
+        self.parent_item_id = int(self.parent_item_id)
         self.item_type_id = int(self.item_type_id)
         self.author_last_name = (
-            self.author_last_name.strip().replace(" ", "_").replace(".", "_")
+            self.author_last_name.strip().strip(".").replace(" ", "_").replace(".", "_")
         )
         self.author_first_name = (
-            self.author_first_name.strip().replace(" ", "_").replace(".", "_")
+            self.author_first_name.strip()
+            .strip(".")
+            .replace(" ", "_")
+            .replace(".", "_")
         )
 
         self._update_title()
@@ -73,11 +79,11 @@ class Item:
         qry = f"""
         select idv.value
         from items i
-        join itemTypeFields itf on itf.itemTypeID = i.itemTypeID 
+        join itemTypeFields itf on itf.itemTypeID = i.itemTypeID
         join fields f on itf.fieldID = f.fieldID
         join itemData id on id.fieldID = f.fieldID and id.itemID = i.itemid
-        join itemDataValues idv on idv.valueID = id.valueID 
-        where i.itemID = {self.item_id}
+        join itemDataValues idv on idv.valueID = id.valueID
+        where i.itemID = {self.parent_item_id}
         and f.fieldName = '{field_name}'
         """
         return qry
@@ -85,7 +91,14 @@ class Item:
     def _update_title(self):
         qry = self._qry_field("title")
         df = query_from_db(qry, ["title"])
-        self.title = df.title.iloc[0]
+        self.title = (
+            df.title.iloc[0]
+            .title()
+            .strip()
+            .replace(" ", "_")
+            .replace(".", "_")
+            .replace(":", "_")
+        )
 
     def _update_publish_year(self):
         qry = self._qry_field("date")
