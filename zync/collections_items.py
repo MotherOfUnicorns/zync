@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .utils import query_from_db
+from .utils import query_from_db, clean_string
 
 
 @dataclass
@@ -61,14 +61,9 @@ class Item:
         self.item_id = int(self.item_id)
         self.parent_item_id = int(self.parent_item_id)
         self.item_type_id = int(self.item_type_id)
-        self.author_last_name = (
-            self.author_last_name.strip().strip(".").replace(" ", "_").replace(".", "_")
-        )
-        self.author_first_name = (
-            self.author_first_name.strip()
-            .strip(".")
-            .replace(" ", "_")
-            .replace(".", "_")
+        self.author_last_name = clean_string(self.author_last_name, replace_space=True)
+        self.author_first_name = clean_string(
+            self.author_first_name, replace_space=True
         )
 
         self._update_title()
@@ -91,14 +86,7 @@ class Item:
     def _update_title(self):
         qry = self._qry_field("title")
         df = query_from_db(qry, ["title"])
-        self.title = (
-            df.title.iloc[0]
-            .title()
-            .strip()
-            .replace(" ", "_")
-            .replace(".", "_")
-            .replace(":", "_")
-        )
+        self.title = clean_string(df.title.iloc[0].title(), replace_space=True)
 
     def _update_publish_year(self):
         qry = self._qry_field("date")
