@@ -27,7 +27,9 @@ class Collection:
 
     def _update_item_ids(self):
         qry = f"""
-        select itemID from collectionItems
+        select ia.itemID  -- use child item ids
+        from collectionItems i
+        join itemAttachments ia on i.itemID = ia.parentItemID
         where collectionID = {self.collection_id}
         """
         df = query_from_db(qry, ["item_id"])
@@ -66,6 +68,7 @@ class Item:
             self.author_first_name, replace_space=True
         )
 
+        self._update_zotero_path()
         self._update_title()
         self._update_publish_year()
         self._update_extra_tag()
@@ -82,6 +85,9 @@ class Item:
         and f.fieldName = '{field_name}'
         """
         return qry
+
+    def _update_zotero_path(self):
+        self.zotero_path = self.zotero_path.split("storage:")[-1]
 
     def _update_title(self):
         qry = self._qry_field("title")
@@ -101,3 +107,69 @@ class Item:
             return
         if df.extra.iloc[0] == "TOREAD":  # TODO allow other tags here
             self.extra_tag = "TOREAD"
+
+
+def get_collections() -> Dict[int, Collection]:
+    qry_collections = """
+    select collectionID, collectionName, parentCollectionId, key
+    from collections
+    """
+    df_collections = query_from_db(
+        qry_collections, ["collection_id", "collection_name", "parent_id", "key"]
+    )
+
+    all_collections = dict()
+
+    for ct, row in df_collections.iterrows():
+        collection = Collection(
+            collection_id=row.collection_id,
+            name=row.collection_name,
+            key=row.key,
+            parent_id=row.parent_id,
+        )
+        all_collections[row.collection_id] = collection
+
+    for _, c in all_collections.items():
+        c.update_full_path(all_collections)
+    return all_collections
+
+
+def get_items() -> Dict[int, Item]:
+    qry_items = """
+    select ia.itemID, i.itemID as parent_item_id, i.itemTypeID, i2.key, lastName, firstName, ia.path
+    from items i -- parent item
+    join itemAttachments ia on i.itemID = ia.parentItemID
+    join items i2 on ia.itemID = i2.itemID  -- to select the keys of the child item
+    join itemCreators ic using (itemId)
+    join creators c using (creatorID)
+    where ic.orderIndex = 0  -- only take name of first author
+    and ia.contentType = 'application/pdf'
+    """
+    df_items = query_from_db(
+        qry_items,
+        [
+            "item_id",
+            "parent_item_id",
+            "item_type_id",
+            "key",
+            "author_last_name",
+            "author_first_name",
+            "path",
+        ],
+    )
+
+    all_items = dict()
+
+    for ct, row in df_items.iterrows():
+        item = Item(
+            item_id=row.item_id,
+            parent_item_id=row.parent_item_id,
+            item_type_id=row.item_type_id,
+            key=row.key,
+            author_last_name=row.author_last_name,
+            author_first_name=row.author_first_name,
+            zotero_path=row.path,
+        )
+        all_items[row.item_id] = item
+
+    return all_items
